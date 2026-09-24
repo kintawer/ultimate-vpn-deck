@@ -555,7 +555,7 @@ function Content() {
                 <div style={{ fontSize: "12px", color: "#8b929a", marginTop: "2px" }}>{s.announce}</div>
               )}
             </div>
-            <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
               <ButtonItem
                 layout="below"
                 disabled={!!refreshingMap[s.id]}

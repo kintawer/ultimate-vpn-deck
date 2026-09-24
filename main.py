@@ -95,7 +95,13 @@ class Plugin:
 
     @_rpc
     async def list_profiles(self) -> List[Dict[str, Any]]:
-        active_id = self.profile_manager.get_active_profile_id()
+        # Gate "active" by the real sing-box process status, not just the
+        # stored active_profile_id: if a connect() attempt fails, the
+        # previous tunnel has already been stopped (ServiceManager.start()
+        # always stops first) but nothing new is running - without this
+        # check the old profile's toggle would stay stuck "on".
+        running = self.service_manager.status()["running"]
+        active_id = self.profile_manager.get_active_profile_id() if running else None
         profiles = self.profile_manager.list_profiles()
         for p in profiles:
             p["active"] = p["id"] == active_id
@@ -207,6 +213,7 @@ class Plugin:
         if result["success"]:
             self.profile_manager.set_active(profile_id)
         else:
+            self.profile_manager.clear_active()
             self._add_error("connect", "ServiceError", result["error"] or "unknown", {"profile_id": profile_id})
         return result
 

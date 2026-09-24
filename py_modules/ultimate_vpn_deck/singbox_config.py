@@ -135,10 +135,8 @@ def profile_to_outbound(profile: Dict[str, Any], tag: str = "proxy") -> Dict[str
     raise ValueError(f"unsupported protocol for sing-box outbound: {protocol}")
 
 
-def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_servers: Optional[List[str]] = None) -> Dict[str, Any]:
+def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_server_host: str = "1.1.1.1") -> Dict[str, Any]:
     """Assembles the full sing-box JSON run config for a single active tunnel."""
-    dns_servers = dns_servers or ["https://1.1.1.1/dns-query"]
-
     log: Dict[str, Any] = {"level": "info"}
     if log_path:
         log["output"] = log_path
@@ -146,13 +144,27 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
     return {
         "log": log,
         "dns": {
+            # sing-box >= 1.12 dns.servers format: explicit `type` per server
+            # (the old single-string `address: "https://..."` form was
+            # removed entirely in 1.14.0 - see
+            # https://sing-box.sagernet.org/migration/#migrate-to-new-dns-server-formats).
+            # All queries resolve through the tunnel (no dns.rules routing by
+            # outbound - that mechanism was also removed in 1.14.0, see
+            # https://sing-box.sagernet.org/migration/#migrate-outbound-dns-rule-items-to-domain-resolver).
+            # Private-destination bypass is handled at the IP/route layer
+            # (route.rules ip_is_private below), so a separate local
+            # resolver isn't needed here.
             "servers": [
-                {"tag": "remote", "address": dns_servers[0], "detour": "proxy"},
-                {"tag": "local", "address": "local", "detour": "direct"},
+                {
+                    "type": "https",
+                    "tag": "remote",
+                    "server": dns_server_host,
+                    "server_port": 443,
+                    "path": "/dns-query",
+                    "detour": "proxy",
+                },
             ],
-            "rules": [
-                {"outbound": "any", "server": "local"},
-            ],
+            "final": "remote",
         },
         "inbounds": [
             {
@@ -162,7 +174,6 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
                 "address": ["172.19.0.1/30"],
                 "auto_route": True,
                 "strict_route": True,
-                "auto_detect_interface": True,
                 "stack": "system",
                 "mtu": 1500,
             }
