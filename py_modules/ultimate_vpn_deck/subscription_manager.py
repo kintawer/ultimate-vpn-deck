@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import decky
 
+from ._utils import system_ssl_context
 from .profile_manager import ProfileManager
 
 REQUEST_TIMEOUT_SEC = 10
@@ -96,7 +97,7 @@ class SubscriptionManager:
 
     def _fetch(self, url: str) -> Tuple[bytes, Dict[str, str]]:
         req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SEC) as resp:
+        with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT_SEC, context=system_ssl_context()) as resp:
             body = resp.read()
             headers = {k.lower(): v for k, v in resp.headers.items()}
         return body, headers
