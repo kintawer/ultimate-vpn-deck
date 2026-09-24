@@ -148,16 +148,20 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
             # (the old single-string `address: "https://..."` form was
             # removed entirely in 1.14.0 - see
             # https://sing-box.sagernet.org/migration/#migrate-to-new-dns-server-formats).
-            # detour is "direct", NOT "proxy": resolving DNS through the same
-            # tunnel that carries general traffic creates a circular/nested
-            # connection for every single lookup (each DoH query opens
-            # another logical stream inside the already-open proxy tunnel),
-            # which measured 8-20s+ per query in practice and made every
-            # domain-based check time out while IP-literal probes (no DNS
-            # needed) stayed fast. Resolving via the real network directly
-            # is fast and still encrypted (DoH); only the resolved app
-            # traffic itself needs to go through the tunnel (route.final
-            # below), not the DNS lookup.
+            # No `detour` set (defaults to a plain direct connection), NOT
+            # "proxy": resolving DNS through the same tunnel that carries
+            # general traffic creates a circular/nested connection for every
+            # single lookup (each DoH query opens another logical stream
+            # inside the already-open proxy tunnel), which measured 8-20s+
+            # per query in practice and made every domain-based check time
+            # out while IP-literal probes (no DNS needed) stayed fast.
+            # Explicitly setting `"detour": "direct"` is rejected by
+            # sing-box ("detour to an empty direct outbound makes no
+            # sense") - omitting the field is the correct way to get the
+            # same plain-direct behavior. Resolving via the real network
+            # directly is fast and still encrypted (DoH); only the resolved
+            # app traffic itself needs to go through the tunnel
+            # (route.final below), not the DNS lookup.
             "servers": [
                 {
                     "type": "https",
@@ -165,7 +169,6 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
                     "server": dns_server_host,
                     "server_port": 443,
                     "path": "/dns-query",
-                    "detour": "direct",
                 },
             ],
             "final": "remote",

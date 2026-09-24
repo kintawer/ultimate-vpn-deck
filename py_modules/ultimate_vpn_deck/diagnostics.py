@@ -13,7 +13,9 @@ from ._utils import clean_env
 DEFAULT_TARGETS: List[Dict] = [
     {"name": "1.1.1.1", "kind": "ping", "host": "1.1.1.1"},
     {"name": "google.com", "kind": "http", "url": "https://www.google.com"},
-    {"name": "ifconfig.me", "kind": "http", "url": "https://ifconfig.me"},
+    # show_body: ifconfig.me's whole response IS the externally-visible IP,
+    # which is the actual point of this probe - display it, not just "OK".
+    {"name": "ifconfig.me", "kind": "http", "url": "https://ifconfig.me", "show_body": True},
     # claude.ai redirects to a 200 OK "app-unavailable-in-region" page when
     # geo-blocked (not an HTTP error), so a plain status-code check would
     # report "ok" even while actually blocked - block_if_url_contains
@@ -41,7 +43,7 @@ class Diagnostics:
         if kind == "ping":
             return self._ping(name, t["host"])
         if kind == "http":
-            return self._http(name, t["url"], t.get("block_if_url_contains"))
+            return self._http(name, t["url"], t.get("block_if_url_contains"), t.get("show_body", False))
         return {"name": name, "kind": kind or "unknown", "ok": False, "detail": f"unknown kind: {kind}", "target": "", "latency_ms": None}
 
     @staticmethod
@@ -67,16 +69,24 @@ class Diagnostics:
             return {"name": name, "kind": "ping", "target": host, "ok": False, "detail": "ping not found", "latency_ms": None}
 
     @staticmethod
-    def _http(name: str, url: str, block_if_url_contains: Optional[str] = None) -> Dict:
+    def _http(name: str, url: str, block_if_url_contains: Optional[str] = None, show_body: bool = False) -> Dict:
         try:
+            # Body goes to stdout (no -o /dev/null) followed by a stats line
+            # prefixed with a newline, so `rsplit("\n", 1)` cleanly separates
+            # the two regardless of how many lines the body itself has.
             r = subprocess.run(
-                ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code} %{time_total} %{url_effective}",
-                 "--max-time", "8", "-L", url],
+                ["curl", "-sS", "-L", "--max-time", "8", "-w", "\n%{http_code} %{time_total} %{url_effective}", url],
                 capture_output=True, text=True, timeout=12, check=False,
                 env=clean_env(),
             )
-            out = r.stdout.strip()
-            parts = out.split(maxsplit=2)
+            output = r.stdout
+            if "\n" in output:
+                body, stats_line = output.rsplit("\n", 1)
+            else:
+                body, stats_line = "", output
+            body = body.strip()
+
+            parts = stats_line.strip().split(maxsplit=2)
             code = parts[0] if parts else "0"
             time_s = float(parts[1]) if len(parts) > 1 else None
             effective_url = parts[2] if len(parts) > 2 else url
@@ -89,6 +99,9 @@ class Diagnostics:
                 detail += " (заблокировано по региону)"
             elif not ok and r.stderr:
                 detail += f" ({r.stderr.strip().splitlines()[-1]})"
+            elif show_body and ok and body:
+                snippet = body if len(body) <= 200 else body[:200] + "…"
+                detail += f" — {snippet}"
             return {"name": name, "kind": "http", "target": url, "ok": ok, "detail": detail, "latency_ms": time_s * 1000 if time_s else None}
         except subprocess.TimeoutExpired:
             return {"name": name, "kind": "http", "target": url, "ok": False, "detail": "timeout", "latency_ms": None}
