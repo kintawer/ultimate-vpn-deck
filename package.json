@@ -1,6 +1,6 @@
 {
   "name": "ultimate-vpn-deck",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "VLESS/VMess/Trojan/Shadowsocks/Hysteria2 VPN toggle (sing-box powered) for Decky Loader",
   "type": "module",
   "scripts": {
