@@ -180,7 +180,16 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
                 "interface_name": TUN_INTERFACE_NAME,
                 "address": ["172.19.0.1/30"],
                 "auto_route": True,
-                "strict_route": True,
+                # strict_route intentionally False: it captures ALL traffic
+                # at the kernel routing level (including LAN/SSH return
+                # traffic to the Deck itself), and in live testing this
+                # broke the very SSH session used to manage the device -
+                # even though route.rules already sends ip_is_private
+                # traffic through "direct" at the app layer, strict_route's
+                # kernel-level capture happened before that rule could save
+                # it. Not needed for this plugin's goal (route app traffic
+                # through the VPN), only for stricter anti-leak hardening.
+                "strict_route": False,
                 "stack": "system",
                 "mtu": 1500,
             }
