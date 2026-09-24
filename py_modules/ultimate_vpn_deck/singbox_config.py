@@ -148,12 +148,16 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
             # (the old single-string `address: "https://..."` form was
             # removed entirely in 1.14.0 - see
             # https://sing-box.sagernet.org/migration/#migrate-to-new-dns-server-formats).
-            # All queries resolve through the tunnel (no dns.rules routing by
-            # outbound - that mechanism was also removed in 1.14.0, see
-            # https://sing-box.sagernet.org/migration/#migrate-outbound-dns-rule-items-to-domain-resolver).
-            # Private-destination bypass is handled at the IP/route layer
-            # (route.rules ip_is_private below), so a separate local
-            # resolver isn't needed here.
+            # detour is "direct", NOT "proxy": resolving DNS through the same
+            # tunnel that carries general traffic creates a circular/nested
+            # connection for every single lookup (each DoH query opens
+            # another logical stream inside the already-open proxy tunnel),
+            # which measured 8-20s+ per query in practice and made every
+            # domain-based check time out while IP-literal probes (no DNS
+            # needed) stayed fast. Resolving via the real network directly
+            # is fast and still encrypted (DoH); only the resolved app
+            # traffic itself needs to go through the tunnel (route.final
+            # below), not the DNS lookup.
             "servers": [
                 {
                     "type": "https",
@@ -161,7 +165,7 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
                     "server": dns_server_host,
                     "server_port": 443,
                     "path": "/dns-query",
-                    "detour": "proxy",
+                    "detour": "direct",
                 },
             ],
             "final": "remote",

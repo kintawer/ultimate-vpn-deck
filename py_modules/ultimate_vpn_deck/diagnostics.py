@@ -14,6 +14,16 @@ DEFAULT_TARGETS: List[Dict] = [
     {"name": "1.1.1.1", "kind": "ping", "host": "1.1.1.1"},
     {"name": "google.com", "kind": "http", "url": "https://www.google.com"},
     {"name": "ifconfig.me", "kind": "http", "url": "https://ifconfig.me"},
+    # claude.ai redirects to a 200 OK "app-unavailable-in-region" page when
+    # geo-blocked (not an HTTP error), so a plain status-code check would
+    # report "ok" even while actually blocked - block_if_url_contains
+    # inspects the final followed-redirect URL instead.
+    {
+        "name": "claude.ai",
+        "kind": "http",
+        "url": "https://claude.ai",
+        "block_if_url_contains": "app-unavailable-in-region",
+    },
 ]
 
 
@@ -31,7 +41,7 @@ class Diagnostics:
         if kind == "ping":
             return self._ping(name, t["host"])
         if kind == "http":
-            return self._http(name, t["url"])
+            return self._http(name, t["url"], t.get("block_if_url_contains"))
         return {"name": name, "kind": kind or "unknown", "ok": False, "detail": f"unknown kind: {kind}", "target": "", "latency_ms": None}
 
     @staticmethod
@@ -57,21 +67,27 @@ class Diagnostics:
             return {"name": name, "kind": "ping", "target": host, "ok": False, "detail": "ping not found", "latency_ms": None}
 
     @staticmethod
-    def _http(name: str, url: str) -> Dict:
+    def _http(name: str, url: str, block_if_url_contains: Optional[str] = None) -> Dict:
         try:
             r = subprocess.run(
-                ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code} %{time_total}",
-                 "--max-time", "6", "-L", url],
-                capture_output=True, text=True, timeout=10, check=False,
+                ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code} %{time_total} %{url_effective}",
+                 "--max-time", "8", "-L", url],
+                capture_output=True, text=True, timeout=12, check=False,
                 env=clean_env(),
             )
             out = r.stdout.strip()
-            parts = out.split()
+            parts = out.split(maxsplit=2)
             code = parts[0] if parts else "0"
             time_s = float(parts[1]) if len(parts) > 1 else None
+            effective_url = parts[2] if len(parts) > 2 else url
             ok = code.startswith(("2", "3"))
+            blocked = bool(block_if_url_contains) and block_if_url_contains in effective_url
+            if blocked:
+                ok = False
             detail = f"HTTP {code}" + (f", {time_s:.2f}s" if time_s is not None else "")
-            if not ok and r.stderr:
+            if blocked:
+                detail += " (заблокировано по региону)"
+            elif not ok and r.stderr:
                 detail += f" ({r.stderr.strip().splitlines()[-1]})"
             return {"name": name, "kind": "http", "target": url, "ok": ok, "detail": detail, "latency_ms": time_s * 1000 if time_s else None}
         except subprocess.TimeoutExpired:
