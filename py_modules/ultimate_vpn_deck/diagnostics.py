@@ -75,7 +75,10 @@ class Diagnostics:
             # prefixed with a newline, so `rsplit("\n", 1)` cleanly separates
             # the two regardless of how many lines the body itself has.
             r = subprocess.run(
-                ["curl", "-sS", "-L", "--max-time", "8", "-w", "\n%{http_code} %{time_total} %{url_effective}", url],
+                # -4: the tunnel outbound has been observed to silently drop
+                # IPv6 connections (no error, just hangs to --max-time) even
+                # when AAAA resolves fine - force IPv4 defensively here too.
+                ["curl", "-sS", "-4", "-L", "--max-time", "8", "-w", "\n%{http_code} %{time_total} %{url_effective}", url],
                 capture_output=True, text=True, timeout=12, check=False,
                 env=clean_env(),
             )

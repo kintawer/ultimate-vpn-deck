@@ -162,6 +162,13 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
             # directly is fast and still encrypted (DoH); only the resolved
             # app traffic itself needs to go through the tunnel
             # (route.final below), not the DNS lookup.
+            # strategy: ipv4_only - live testing showed AAAA records
+            # resolving fine (fast DoH), but the vless/Reality outbound
+            # doesn't actually deliver IPv6 connections (packets vanish, no
+            # RST/timeout signal), so any client preferring the IPv6 result
+            # (Happy Eyeballs) would hang for the full connect timeout on
+            # every single request before ever trying the working IPv4
+            # address. Not handing out AAAA at all avoids this entirely.
             "servers": [
                 {
                     "type": "https",
@@ -171,6 +178,7 @@ def build_config(outbound: Dict[str, Any], log_path: Optional[str] = None, dns_s
                     "path": "/dns-query",
                 },
             ],
+            "strategy": "ipv4_only",
             "final": "remote",
         },
         "inbounds": [
