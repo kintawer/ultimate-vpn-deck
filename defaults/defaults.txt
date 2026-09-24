@@ -1,0 +1,4 @@
+This directory's contents are copied into the root of the packaged plugin
+zip alongside dist/, main.py, py_modules/, bin/, etc. (same mechanism CssLoader
+uses for its themes/ directory). ultimate-vpn-deck does not ship any default
+profiles or configs, so this directory is currently just a placeholder.

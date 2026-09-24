@@ -1,0 +1,31 @@
+{
+  "git": {
+    "commitMessage": "release ${version}",
+    "tagName": "${version}",
+    "requireCleanWorkingDir": true,
+    "requireUpstream": true,
+    "requireCommits": true
+  },
+  "github": {
+    "release": true,
+    "releaseName": "${version}",
+    "assets": [
+      "./out/ultimate-vpn-deck-*.zip"
+    ],
+    "draft": false,
+    "preRelease": false
+  },
+  "npm": {
+    "publish": false
+  },
+  "hooks": {
+    "before:init": [
+      "BRANCH=$(git branch --show-current) && if [[ \"$BRANCH\" != \"main\" ]]; then echo 'Not on main branch'; exit 1; fi"
+    ],
+    "before:release": [
+      "bash infra/build-plugin.sh ${version}"
+    ],
+    "after:bump": "echo 'Version bumped to ${version}'"
+  },
+  "plugins": {}
+}

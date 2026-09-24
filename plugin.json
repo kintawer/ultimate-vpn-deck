@@ -1,0 +1,22 @@
+{
+  "name": "ultimate-vpn-deck",
+  "author": "kintawer",
+  "flags": [
+    "root"
+  ],
+  "api_version": 1,
+  "publish": {
+    "tags": [
+      "vpn",
+      "sing-box",
+      "vless",
+      "vmess",
+      "trojan",
+      "shadowsocks",
+      "hysteria2",
+      "root"
+    ],
+    "description": "Toggle VLESS/VMess/Trojan/Shadowsocks/Hysteria2 profiles and subscriptions (sing-box powered) from gaming mode",
+    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/PluginLoader"
+  }
+}
