@@ -38,8 +38,7 @@ page and install it via Decky Loader's "Install from zip" option, or drop it int
 ## Development
 
 ```bash
-just install        # pnpm install
-just test            # run unit tests (no binary/network required)
+just install         # pnpm install
 just fetch-binaries  # download the pinned sing-box release into ./bin/
 just build-plugin    # produce out/ultimate-vpn-deck.zip
 ```
