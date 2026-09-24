@@ -12,7 +12,13 @@ import {
   TextField,
   ToggleField,
 } from "@decky/ui";
-import { callable, definePlugin, toaster } from "@decky/api";
+import {
+  callable,
+  definePlugin,
+  FileSelectionType,
+  openFilePicker,
+  toaster,
+} from "@decky/api";
 import { useState, useEffect, useCallback } from "react";
 import { FaShieldAlt } from "react-icons/fa";
 
@@ -84,6 +90,9 @@ interface DiagnosticsProbe {
 
 const listProfiles = callable<[], Profile[]>("list_profiles");
 const addProfile = callable<[{ uri: string }], OpResult>("add_profile");
+const readTextFile = callable<[{ path: string }], { success: boolean; content: string | null; error: string | null }>(
+  "read_text_file",
+);
 const deleteProfile = callable<[{ profile_id: string }], OpResult>("delete_profile");
 
 const listSubscriptions = callable<[], Subscription[]>("list_subscriptions");
@@ -140,6 +149,22 @@ function ImportModal({
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const handlePickFile = async () => {
+    try {
+      const res = await openFilePicker(FileSelectionType.FILE, "/home/deck/Downloads", true, true);
+      const result = await readTextFile({ path: res.realpath });
+      if (result.success && result.content) {
+        const firstLine = result.content.split("\n")[0].trim();
+        setValue(firstLine);
+        toaster.toast({ title: "Загружено из файла", body: res.realpath.split("/").pop() ?? "" });
+      } else {
+        toaster.toast({ title: "Ошибка чтения файла", body: result.error ?? "Файл пуст" });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleImport = async () => {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -190,6 +215,9 @@ function ImportModal({
           >
             Подписка
           </DialogButton>
+        </div>
+        <div style={{ marginBottom: "12px" }}>
+          <DialogButton onClick={handlePickFile}>Выбрать файл (.txt)</DialogButton>
         </div>
         <TextField
           label={mode === "link" ? "Ссылка профиля" : "URL подписки"}

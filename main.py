@@ -115,6 +115,22 @@ class Plugin:
         return result
 
     @_rpc
+    async def read_text_file(self, path: str) -> Dict[str, Any]:
+        """Reads a small text file chosen via the frontend's file picker
+        (link or subscription URL saved to a .txt file - avoids typing long
+        links via the on-screen keyboard)."""
+        if isinstance(path, dict):
+            path = path.get("path", "")
+        if not path or not os.path.isfile(path):
+            return {"success": False, "content": None, "error": "file not found"}
+        try:
+            with open(path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+        except OSError as e:
+            return {"success": False, "content": None, "error": str(e)}
+        return {"success": True, "content": content.strip(), "error": None}
+
+    @_rpc
     async def delete_profile(self, profile_id: str) -> Dict[str, Any]:
         if isinstance(profile_id, dict):
             profile_id = profile_id.get("profile_id", "")
